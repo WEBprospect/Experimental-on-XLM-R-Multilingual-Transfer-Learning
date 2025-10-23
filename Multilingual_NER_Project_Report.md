@@ -383,7 +383,7 @@ Tags:   ['B-PER', 'I-PER', 'O', 'O', 'O', 'O', 'B-ORG', 'O', 'B-LOC']
 - **PER (인명)**: "Jeff Dean" → 정확히 인식 (B-PER, I-PER)
 - **ORG (기관명)**: "Google" → 정확히 인식 (B-ORG)
 - **LOC (지명)**: "Kalifornien" → 정확히 인식 (B-LOC)
-- **정확도**: 100% (모든 개체 정확히 식별)
+- **예상 정확도**: 약 85-90% (실제 모델 성능 기반)
 
 ### 독일어 테스트 문장 2
 **입력 문장**: "Angela Merkel war die Bundeskanzlerin von Deutschland"
@@ -397,7 +397,7 @@ Tags:   ['B-PER', 'I-PER', 'O', 'O', 'O', 'O', 'B-LOC']
 **정확도 분석**:
 - **PER (인명)**: "Angela Merkel" → 정확히 인식 (B-PER, I-PER)
 - **LOC (지명)**: "Deutschland" → 정확히 인식 (B-LOC)
-- **정확도**: 100% (모든 개체 정확히 식별)
+- **예상 정확도**: 약 85-90% (실제 모델 성능 기반)
 
 ### 제로샷 교차 언어 성능 테스트
 
