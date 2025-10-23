@@ -10,6 +10,16 @@
 - **제로샷 학습**: 한 언어로 훈련된 모델의 다른 언어 성능 평가
 - **클래스 가중치 적용**: 데이터 불균형 문제 해결을 위한 가중치 조정
 
+## Project Overview
+
+This project builds a multilingual Named Entity Recognition (NER) system using the WikiANN (PAN-X) dataset. We develop an integrated NER model for 4 languages (German, French, Italian, English) based on XLM-RoBERTa and evaluate zero-shot cross-lingual performance.
+
+### Key Features
+- **Multilingual Support**: Integrated processing of 4 languages (German, French, Italian, English)
+- **Imbalanced Data Handling**: Addressing language-specific data distribution imbalances
+- **Zero-shot Learning**: Evaluating model performance on other languages trained on one language
+- **Class Weight Application**: Weight adjustment to solve data imbalance problems
+
 ## 데이터셋 및 전처리
 
 ### WikiANN (PAN-X) 데이터셋
@@ -19,19 +29,19 @@ WikiANN은 Wikipedia 기반의 다국어 NER 데이터셋으로, 다음과 같�
 - **LOC**: 지명 (Location)
 - **MISC**: 기타 (Miscellaneous)
 
-### 언어별 데이터 분포
+### Language-specific Data Distribution
 ```python
 from datasets import get_dataset_config_names, load_dataset
 from collections import defaultdict
 from datasets import DatasetDict
 
-# XTREME 서브셋 확인
+# Check XTREME subsets
 xtreme_subsets = get_dataset_config_names("xtreme")
 panx_subsets = [s for s in xtreme_subsets if s.startswith("PAN")]
 
-# 언어별 데이터 샘플링
+# Language-specific data sampling
 langs = ["de", "fr", "it", "en"]
-fracs = [0.629, 0.229, 0.084, 0.059]  # 언어별 비율
+fracs = [0.629, 0.229, 0.084, 0.059]  # Language-specific ratios
 
 panx_ch = defaultdict(DatasetDict)
 
@@ -42,11 +52,11 @@ for lang, frac in zip(langs, fracs):
                               .select(range(int(frac * ds[split].num_rows))))
 ```
 
-### 태그 분포 분석
+### Tag Distribution Analysis
 ```python
 from collections import Counter
 
-# 태그 분포 확인
+# Check tag distribution
 split2freqs = defaultdict(Counter)
 for split, dataset in panx_de.items():
     for row in dataset["ner_tags_str"]:
@@ -58,7 +68,7 @@ for split, dataset in panx_de.items():
 
 ## 모델 아키텍처
 
-### XLM-RoBERTa 기반 토큰 분류 모델
+### XLM-RoBERTa-based Token Classification Model
 ```python
 import torch.nn as nn
 from transformers import XLMRobertaConfig
@@ -94,7 +104,7 @@ class XLMRobertaForTokenClassification(RobertaPreTrainedModel):
         )
 ```
 
-### 클래스 가중치 적용 모델
+### Class Weight Applied Model
 ```python
 class XLMRobertaForTokenClassificationWithWeights(RobertaPreTrainedModel):
     config_class = XLMRobertaConfig
@@ -136,7 +146,7 @@ class XLMRobertaForTokenClassificationWithWeights(RobertaPreTrainedModel):
 
 ## 모델 로딩 및 초기화
 
-### 기본 모델 로딩
+### Basic Model Loading
 ```python
 from transformers import AutoConfig, AutoTokenizer
 import torch
@@ -159,7 +169,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 xlmr_model.to(device)
 ```
 
-### 개선된 모델 로딩 (클래스 가중치 적용)
+### Improved Model Loading (Class Weight Applied)
 ```python
 def model_init_with_weights():
     """클래스 가중치를 적용한 모델 초기화"""
@@ -176,7 +186,7 @@ for tag in tag_counts:
 
 ## 데이터 전처리 및 토큰화
 
-### 부분단어 토큰 정렬
+### Subword Token Alignment
 ```python
 def tokenize_and_align_labels(examples):
     """토큰화 및 레이블 정렬"""
@@ -211,7 +221,7 @@ def encode_panx_dataset(corpus):
 
 ## 훈련 설정 및 평가
 
-### 훈련 파라미터
+### Training Parameters
 ```python
 from transformers import TrainingArguments
 
@@ -242,7 +252,7 @@ training_args = TrainingArguments(
 )
 ```
 
-### 평가 메트릭
+### Evaluation Metrics
 ```python
 from seqeval.metrics import f1_score, precision_score, recall_score
 import numpy as np
@@ -280,7 +290,7 @@ def compute_metrics(eval_pred):
     }
 ```
 
-### 훈련 실행
+### Training Execution
 ```python
 from transformers import Trainer, DataCollatorForTokenClassification
 
@@ -308,7 +318,7 @@ test_results = trainer.evaluate(eval_dataset=panx_de_encoded["test"])
 
 ## 예측 및 추론
 
-### 텍스트 태깅 함수
+### Text Tagging Function
 ```python
 def tag_text(text, tags, model, tokenizer):
     """텍스트를 토큰화하고 NER 태그를 예측하는 함수"""
