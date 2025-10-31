@@ -76,7 +76,7 @@
 
 ---
 
-### 🧩 Zero-Shot Transfer (de → others)
+### Zero-Shot Transfer (de → others)
 
 독일어 데이터로만 미세튜닝한 모델을  
 프랑스어, 이탈리아어, 영어 데이터셋에 직접 적용해 전이 성능을 평가했습니다.
@@ -92,7 +92,7 @@
 
 ---
 
-### 🎯 Few-Shot Transfer (프랑스어 데이터 증가 실험)
+### Few-Shot Transfer (프랑스어 데이터 증가 실험)
 
 프랑스어 데이터셋을 단계적으로 확장(250 → 4000 샘플)하여  
 Zero-shot 대비 성능 향상 곡선을 관찰했습니다.
@@ -108,7 +108,7 @@ Zero-shot 대비 성능 향상 곡선을 관찰했습니다.
 ![Few-Shot Transfer Performance](graph.PNG)
 ---
 
-### 🌐 Multilingual Fine-Tuning (de + fr)
+### Multilingual Fine-Tuning (de + fr)
 
 독일어와 프랑스어 데이터를 동시에 학습하여  
 언어 간 지식 공유와 일반화 효과를 검증했습니다.
@@ -124,7 +124,7 @@ Zero-shot 대비 성능 향상 곡선을 관찰했습니다.
 
 ---
 
-### 🌏 Full Multilingual Fine-Tuning (de + fr + it + en)
+### Full Multilingual Fine-Tuning (de + fr + it + en)
 
 모든 언어 데이터를 통합 학습하여  
 가장 균형 잡힌 전이 성능을 달성했습니다.
