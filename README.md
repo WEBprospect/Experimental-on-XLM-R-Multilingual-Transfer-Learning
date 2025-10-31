@@ -124,7 +124,7 @@ Zero-shot 대비 성능 향상 곡선을 관찰했습니다.
 
 ---
 
-### Full Multilingual Fine-Tuning (de + fr + it + en)
+### Full Multilingual Fine-Tuning 
 
 모든 언어 데이터를 통합 학습하여  
 가장 균형 잡힌 전이 성능을 달성했습니다.
