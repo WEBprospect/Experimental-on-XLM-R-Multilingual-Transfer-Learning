@@ -205,13 +205,7 @@ Zero-shot, Few-shot, Multilingual, Full fine-tuning 전략을 동일한 파이�
 | **Utilities** | pandas, numpy |
 | **환경** | Python 3.8+, CUDA GPU, Colab 또는 로컬 실행 가능 |
 
----
 
-## 프로젝트 구조
-project/
-├── README.md
-├── Multilingual_NER_with_the_WikiANN_(PAN_X)Dataset.ipynb
-└── multilingual_ner_with_the_wikiann(pan_x)_dataset.py
 
 
 
