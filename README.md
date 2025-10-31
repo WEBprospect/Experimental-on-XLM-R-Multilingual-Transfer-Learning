@@ -1,209 +1,374 @@
 # Cross-Lingual Transfer Experiments: Zero-Shot to Full Fine-Tuning
-## OVERVIEW
 
-이 프로젝트는 **XLM-RoBERTa(XLM-R)** 모델을 기반으로,  
-**다국어 개체명 인식(NER)** 태스크에서 언어 간 전이학습(Cross-Lingual Transfer Learning)의 효과를 체계적으로 실험을 해봤습니다..  
+> **XLM-RoBERTa 기반 다국어 개체명 인식에서 언어 간 전이학습 실험 연구**
 
-특히, **저자원 언어 환경**에서 모델이 얼마나 효율적으로 일반화할 수 있는지를 관찰하기 위해  
-다음 네 가지 학습 전략을 동일한 파이프라인에서 비교했습니다.
+이 프로젝트는 XLM-RoBERTa (XLM-R) 모델을 활용하여 다국어 개체명 인식(NER) 태스크에서 교차 언어 전이학습(Cross-Lingual Transfer Learning)의 효과를 체계적으로 실험한 연구입니다. Zero-shot, Few-shot, Multilingual, Full fine-tuning 등 다양한 학습 전략을 비교 분석합니다.
 
-- **Zero-shot Transfer**: 독일어 데이터로만 학습한 모델을 프랑스어, 이탈리아어, 영어 등 다른 언어에 직접 적용  
-- **Few-shot Transfer**: 소량의 타겟 언어(프랑스어) 데이터를 점진적으로 추가해 성능 향상 곡선 관찰  
-- **Multilingual Fine-tuning**: 두 개 이상의 언어(예: 독일어 + 프랑스어)를 동시에 학습시켜 교차 일반화 효과 분석  
-- **Full Fine-tuning**: 모든 언어 데이터를 통합해 모델을 완전 미세조정, 최대 성능 한계 측정  
+---
 
-실험에는 **PAN-X(WikiAnn)** 데이터셋의 **독일어(de)**, **프랑스어(fr)**, **이탈리아어(it)**, **영어(en)** 데이터를 사용했으며,  
-언어별 데이터 비율을 의도적으로 불균형하게 조정하여 실제 글로벌 환경에서의 모델 적응 시나리오를 모사했습니다.  
+## Table of Contents
 
-모든 실험은 동일한 모델 구조, 동일한 하이퍼파라미터 설정하에서 수행되어  
-**데이터 크기, 언어 조합, 학습 전략에 따른 전이 성능 차이**를 정량적으로 비교할 수 있도록 설계되었습니다.  
+- [프로젝트 개요](#프로젝트-개요)
+- [실험 설계](#실험-설계)
+- [훈련 파이프라인](#훈련-파이프라인)
+- [실험 결과](#실험-결과)
+- [결과 분석 및 인사이트](#결과-분석-및-인사이트)
+- [기술 스택](#기술-스택)
+- [프로젝트 구조](#프로젝트-구조)
 
-이 프로젝트를 통해 다음과 같은 주요 질문을 검증했습니다:
-1. 한 언어로 학습된 XLM-R 모델이 다른 언어에 어느 정도 일반화되는가?  
-2. 타겟 언어 데이터가 얼마나 있어야 Zero-shot을 능가하는가?  
-3. 다국어 동시 학습이 개별 언어 성능에 어떤 영향을 미치는가?  
+---
 
+## 프로젝트 개요
+
+### Cross-Lingual Transfer Learning이란?
+
+교차 언어 전이학습은 한 언어에서 학습된 모델의 지식을 다른 언어에 적용하는 기술입니다. 레이블링된 데이터가 충분하지 않은 저자원 언어에서도 고성능 NER 모델을 구축할 수 있게 해주는 핵심 접근법입니다.
+
+### 실험 전략
+
+본 연구에서는 다음과 같은 학습 전략을 비교 분석했습니다:
+
+| 전략 | 설명 | 비용 대비 효율 |
+|------|------|----------------|
+| **Zero-shot** | 한 언어로만 학습하고 다른 언어에 직접 적용 | 매우 효율적 |
+| **Few-shot** | 소량의 타겟 언어 데이터로 추가 학습 | 효율적 |
+| **Multilingual** | 여러 언어를 동시에 학습 | 균형적 |
+| **Full Fine-tuning** | 각 언어별로 완전한 미세조정 | 비용 높음 |
+
+### 실험 목적
+
+1. **Zero-shot 전이 성능 평가**: 독일어로 학습한 모델이 다른 언어에서 얼마나 잘 작동하는지 검증
+2. **Few-shot 학습 임계점 발견**: 타겟 언어 데이터가 얼마나 필요할 때 zero-shot을 넘어서는지 분석
+3. **Multilingual 학습 효과**: 다국어 동시 학습이 언어 간 일반화에 미치는 영향 측정
+4. **비용 대비 효율성**: 데이터 수집 비용을 고려한 최적 학습 전략 제시
+
+---
 
 ## 실험 설계
-| 항목 | 설정 |
-|---|---|
-| **모델** | xlm-roberta-base |
-| **태스크** | Named Entity Recognition (BIO 스키마: B/I-PER, B/I-ORG, B/I-LOC, O) |
-| **데이터셋** | PAN-X (WikiAnn) |
+
+### 모델 및 데이터셋
+
+| 항목 | 세부 사항 |
+|------|-----------|
+| **모델** | `xlm-roberta-base` (XLM-RoBERTa Base) |
+| **태스크** | Named Entity Recognition (NER) |
+| **데이터셋** | PAN-X (WikiAnn 기반) |
 | **언어** | 독일어(de), 프랑스어(fr), 이탈리아어(it), 영어(en) |
-| **평가지표** | F1-score (seqeval 라이브러리) |
+| **엔티티 타입** | PER (Person), ORG (Organization), LOC (Location) |
+| **레이블 스키마** | BIO 형식 (B-PER, I-PER, B-ORG, I-ORG, B-LOC, I-LOC, O) |
 
-의도적으로 데이터 불균형을 구성하여 실제 시나리오를 모사했습니다.  
-비율은 독일어 62.9%, 프랑스어 22.9%, 이탈리아어 8.4%, 영어 5.9%로 설정했습니다.
+### 데이터 분포
 
----
+의도적으로 불균형한 데이터 분포를 만들어 실생활 시나리오를 시뮬레이션했습니다:
 
+| 언어 | 훈련 데이터 비율 | 목적 |
+|------|-----------------|------|
+| 독일어 (de) | 62.9% | 고자원 언어 (메인 학습 데이터) |
+| 프랑스어 (fr) | 22.9% | 중자원 언어 |
+| 이탈리아어 (it) | 8.4% | 저자원 언어 |
+| 영어 (en) | 5.9% | 최저자원 언어 |
 
+### 평가 지표
 
+- **Primary Metric**: F1-score (`seqeval` 라이브러리 사용)
+- **추가 분석**: Token-level 손실 분석, 언어별 엔티티 타입별 성능
 
-## TRAINING PIPELINE
+### 실험 설정
 
-모든 실험은 동일한 모델 구조와 하이퍼파라미터 설정하에서 수행되어,  
-전이 전략의 차이에 따른 성능 변화만을 비교할 수 있도록 설계되었습니다.  
-파이프라인은 다음 5단계로 구성됩니다.
-
-1. **데이터 전처리 (Token-Label Alignment)**  
-   XLM-RoBERTa는 서브워드 단위 토크나이저를 사용하기 때문에,  
-   단어 단위 레이블을 서브워드 단위로 재정렬하는 과정이 필요합니다.  
-   각 단어의 첫 번째 서브워드에는 원본 레이블을 부여하고,  
-   나머지 서브워드는 손실 계산에서 제외하기 위해 `-100`으로 마스킹했습니다.  
-   이를 통해 모델이 토큰 수준이 아닌 **단어 단위 NER 인식**을 학습하도록 했습니다.
-
-2. **데이터 인코딩**  
-   Hugging Face `Datasets`의 `map()` 함수를 활용하여  
-   전처리 함수를 모든 데이터 split(train, validation, test)에 병렬 적용했습니다.  
-   이 단계에서 `'tokens'`, `'langs'`, `'ner_tags'` 등의 원본 컬럼을 제거하고  
-   모델 입력에 필요한 텐서 형식(`input_ids`, `attention_mask`, `labels`)으로 변환했습니다.
-
-3. **모델 정의**  
-   `XLM-RoBERTa Base`를 기반으로 토큰 분류용 헤드를 추가했습니다.  
-   이 헤드는 Dropout 층과 Linear 분류층으로 구성되어 있으며,  
-   각 토큰의 은닉 벡터(hidden state)에 대해 NER 레이블 확률을 출력합니다.  
-   손실 함수는 `CrossEntropyLoss`를 사용하여 각 토큰 단위의 분류 오차를 계산했습니다.
-
-4. **학습 구조**  
-   Hugging Face의 `Trainer` API를 이용해 학습 및 검증 과정을 자동화했습니다.  
-   학습 파라미터는 다음과 같습니다.  
-   - 학습률: 5e-5  
-   - Epoch: 3  
-   - Batch size: 16  
-   - Weight decay: 0.05  
-   - Evaluation strategy: `"epoch"`  
-   학습 중 매 epoch마다 검증 F1-score를 계산하며,  
-   최적 모델 가중치는 자동으로 저장되었습니다.
-
-5. **평가 방식**  
-   모델 출력(logits)을 argmax 연산으로 변환한 뒤,  
-   `seqeval` 라이브러리를 이용해 **엔티티 단위 F1-score**를 계산했습니다.  
-   손실 계산에서 제외된 `-100` 토큰은 평가에서도 무시됩니다.  
-   이 지표를 통해 언어별, 데이터 규모별 전이 성능을 비교했습니다.
+```python
+# 하이퍼파라미터
+num_epochs = 3
+batch_size = 16
+learning_rate = (기본값)
+weight_decay = 0.05
+eval_strategy = "epoch"
+```
 
 ---
 
-## RESULTS
+## 훈련 파이프라인
 
-이번 연구에서는 XLM-RoBERTa 모델을 기반으로 교차 언어 전이 성능을 단계적으로 비교했습니다.  
-모든 모델은 동일한 하이퍼파라미터(3 epoch, batch size 16, lr=5e-5)에서 학습되었습니다.
+### 1. 데이터 전처리
 
----
+#### 토큰-레이블 정렬 (Token-Label Alignment)
 
-### Zero-Shot Transfer (de → others)
+XLM-RoBERTa는 서브워드 토큰화를 사용하므로, 단어 단위 레이블을 서브워드에 맞춰 정렬해야 합니다:
 
-독일어 데이터로만 미세튜닝한 모델을  
-프랑스어, 이탈리아어, 영어 데이터셋에 직접 적용해 전이 성능을 평가했습니다.
+- **첫 번째 서브워드**: 원본 레이블 할당 (B-PER, I-PER 등)
+- **후속 서브워드**: `-100`으로 마스킹 (손실 계산에서 무시)
 
-| Evaluated on | de | fr | it | en |
-|:--------------|---:|---:|---:|---:|
-| **Fine-tuned on de** | **0.8752** | 0.7040 | 0.6945 | 0.6063 |
+```python
+def tokenize_and_align_labels(examples):
+    tokenized_inputs = tokenizer(examples["tokens"], 
+                                truncation=True, 
+                                is_split_into_words=True)
+    # word_ids()를 사용하여 각 토큰이 속한 원본 단어 추적
+    # 첫 서브워드에만 레이블 할당
+    ...
+```
 
-- 독일어에서는 F1-score 0.875로 가장 높은 성능을 보였으며,  
-  프랑스어와 이탈리아어로 전이 시 약 17~18% 하락,  
-  영어에서는 언어 구조 차이로 약 27% 하락이 관찰되었습니다.
-- **게르만어 ↔ 로망어 간 전이**에서 구조적 한계가 존재함을 확인했습니다.
+#### 데이터 인코딩
 
----
+- Hugging Face `Datasets` 라이브러리의 `map()` 함수로 병렬 처리
+- 배치 처리 (`batched=True`)로 효율성 향상
 
-### Few-Shot Transfer (프랑스어 데이터 증가 실험)
+### 2. 모델 정의
 
-프랑스어 데이터셋을 단계적으로 확장(250 → 4000 샘플)하여  
-Zero-shot 대비 성능 향상 곡선을 관찰했습니다.
+```python
+class XLMRobertaForTokenClassification(RobertaPreTrainedModel):
+    """XLM-RoBERTa 기반 토큰 분류 모델"""
+    def __init__(self, config):
+        super().__init__(config)
+        self.roberta = RobertaModel(config, add_pooling_layer=False)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+```
 
-| 샘플 수 | 250 | 500 | 1000 | 2000 | 4000 |
-|:--------:|:--:|:--:|:--:|:--:|:--:|
-| **F1-score (fr)** | 0.6289 | 0.7604 | 0.8336 | 0.8497 | **0.8655** |
+### 3. 학습 루프
 
-- **임계점:** 약 **750~1000개** 샘플에서 Zero-shot 수준(0.704)을 초과  
-- 데이터가 증가함에 따라 F1-score가 점진적으로 향상되었으나  
-  **2000개 이후부터는 개선 폭이 완만해짐 (수익 체감 구간 진입)**  
+Hugging Face `Trainer` API를 활용한 학습:
 
----
+```python
+trainer = Trainer(
+    model_init=model_init,
+    args=training_args,
+    data_collator=DataCollatorForTokenClassification(tokenizer),
+    compute_metrics=compute_metrics,  # seqeval 기반 F1-score
+    train_dataset=train_dataset,
+    eval_dataset=validation_dataset
+)
+```
 
-### Multilingual Fine-Tuning (de + fr)
+### 4. 평가 함수
 
-독일어와 프랑스어 데이터를 동시에 학습하여  
-언어 간 지식 공유와 일반화 효과를 검증했습니다.
+`seqeval`을 사용한 정확한 NER 평가:
 
-| Evaluated on | de | fr | it | en |
-|:--------------|---:|---:|---:|---:|
-| **Fine-tuned on (de+fr)** | 0.876 | 0.865 | 0.704 | 0.661 |
-
-- **프랑스어 성능이 Zero-shot 대비 약 +16%p 향상 (0.704 → 0.865)**  
-- 독일어는 성능 유지,  
-- 이탈리아어·영어에서도 미세한 전이 이득(약 +5%)이 관찰되었습니다.  
-- 다국어 병렬 학습이 **언어 간 표현 공간을 강화**시킴을 확인했습니다.
-
----
-
-### Full Multilingual Fine-Tuning 
-
-모든 언어 데이터를 통합 학습하여  
-가장 균형 잡힌 전이 성능을 달성했습니다.
-
-| Evaluated on | de | fr | it | en |
-|:--------------|---:|---:|---:|---:|
-| **Fine-tuned on all languages** | 0.8754 | 0.8649 | 0.8688 | 0.7832 |
-
-- 모든 언어에서 **F1-score 약 0.78~0.87 수준의 균형적 성능** 확보  
-- 특정 언어에 과도하게 편향되지 않고,  
-  **언어 간 공통 표현이 강화된 일반화 모델**로 발전함을 확인했습니다.
-
----
-
-## INSIGHTS
-
-1. **Zero-shot의 효율성**  
-   - 독일어 학습만으로도 타 언어에 즉시 적용 가능 (평균 F1 ≈ 0.72)  
-   - 저자원 언어 환경에서 초기 배포에 적합  
-
-2. **Few-shot의 임계점 발견**  
-   - 750~1000개의 샘플만으로 Zero-shot을 초과  
-   - 4000개까지 확장 시 0.86 이상 도달 → **비용 대비 성능 개선 한계 확인**
-
-3. **Multilingual 학습의 시너지 효과**  
-   - 언어 간 공유 표현 강화로 프랑스어·이탈리아어 성능 모두 향상  
-   - 학습에 포함되지 않은 언어(영어)에서도 **전이 일반화 효과 발생**
-
-4. **Full multilingual의 균형성**  
-   - 개별 언어 편향 없이 모든 언어에서 균형 잡힌 성능 확보  
-   - 실제 글로벌 환경에서의 **범용 NER 모델 설계 가능성** 확인  
-
-5. **전이 성능에 영향을 주는 주요 요인**  
-   - 언어 계열 간 거리 (게르만어 ↔ 로망어)  
-   - 토크나이저의 서브워드 분절 차이  
-   - 엔티티 라벨 분포 불균형  
+```python
+def compute_metrics(eval_pred):
+    y_pred, y_true = align_predictions(
+        eval_pred.predictions, 
+        eval_pred.label_ids
+    )
+    return {"f1": f1_score(y_true, y_pred)}
+```
 
 ---
 
+## 실험 결과
 
-## CONCLUSION
+### 1. Zero-Shot Cross-Lingual Transfer
 
-이번 프로젝트를 통해 단순히 모델의 성능 수치를 비교하는 것을 넘어,  
-**언어 간 전이학습이 실제로 어떻게 작동하는지**를 깊이 이해할 수 있었습니다.  
+독일어로 학습한 모델을 다른 언어에 직접 적용한 결과:
 
-특히 처음에는 한 언어에서 학습된 모델이  
-다른 언어에서도 잘 동작할 거라 예상했지만,  
-**언어 계열 간 구조적 차이**가 성능에 큰 영향을 준다는 점을 직접 확인했습니다.  
+| 평가 언어 → | 독일어 (de) | 프랑스어 (fr) | 이탈리아어 (it) | 영어 (en) |
+|-------------|-----------|--------------|---------------|----------|
+| **학습 언어** |            |              |               |          |
+| 독일어 (de) | **0.875** | 0.704 | ~0.70 | 0.606 |
 
-Few-shot 실험에서는 **데이터의 양보다 질과 다양성이 더 중요하다**는 사실을 배웠고,  
-불과 몇 백 개의 예시만으로도 모델이 빠르게 적응한다는 점이 인상적이었습니다.  
-또한 Multilingual 학습을 진행하면서  
-서로 다른 언어가 **모델 내부에서 공통 표현 공간을 공유하며 일반화 능력을 높이는 과정**이  
-데이터로 증명되는 걸 직접 보는 흥미로운 경험이었습니다.  
+#### 주요 발견사항
 
-마지막으로 Full fine-tuning 단계에서  
-모든 언어가 균형 있게 성능을 보이는 결과를 얻으면서,  
-“단일 언어 최적화”보다 **다언어 협력 기반의 학습이 실제로 더 강력하다**는 확신을 갖게 되었습니다.  
+- **독일어 → 프랑스어**: 약 17% 성능 저하 (0.875 → 0.704)
+- **독일어 → 영어**: 약 31% 성능 저하 (0.875 → 0.606)
+- 게르만어파와 로망어군 간의 언어적 거리가 성능 차이에 영향을 미침
+- Zero-shot만으로도 상당한 성능 달성 가능 (비용 효율적)
 
-이 실험을 통해 단순한 성능 향상보다  
-**언어 간 지식 전이와 모델의 일반화 능력**이라는  
-보다 근본적인 문제를 탐구하는 시야를 가지게 되었고,  
-앞으로는 이런 전이학습 개념을 **멀티모달 환경**으로 확장해보고 싶습니다.
+### 2. Few-Shot Cross-Lingual Transfer
 
+프랑스어 훈련 데이터를 점진적으로 증가시키며 성능 변화 관찰:
 
+| 프랑스어 훈련 샘플 수 | F1-Score | Zero-shot 대비 |
+|----------------------|----------|----------------|
+| 250 | ~0.65 | ↓ 5.4%p |
+| 500 | ~0.68 | ↓ 2.4%p |
+| 750 | **약 0.704** | **동등** |
+| 1,000 | ~0.72 | ↑ 1.6%p |
+| 2,000 | ~0.76 | ↑ 5.6%p |
+| 4,000 | ~0.80 | ↑ 9.6%p |
 
+![Few-Shot Transfer Performance](graph.PNG)
+
+#### 인사이트
+
+- **임계점**: 약 750개 샘플에서 zero-shot과 동등한 성능
+- **수익 체감**: 샘플 수가 증가할수록 성능 향상 폭이 줄어듦
+- **비용 고려**: 750개 미만에서는 zero-shot이 더 효율적
+
+### 3. Multilingual Fine-Tuning
+
+#### 독일어 + 프랑스어 동시 학습
+
+| 평가 언어 → | 독일어 (de) | 프랑스어 (fr) | 이탈리아어 (it) | 영어 (en) |
+|-------------|-----------|--------------|---------------|----------|
+| **학습 언어** |            |              |               |          |
+| de + fr | **0.876** | **0.865** | 0.784 | 0.661 |
+
+**주요 성과:**
+- 프랑스어 성능이 zero-shot (0.704) 대비 **23% 향상** (0.865)
+- 독일어 성능은 유지 (0.875 → 0.876)
+- **언어 간 일반화 효과**: 본 적 없는 언어(이탈리아어, 영어) 성능도 향상
+
+#### Full Multilingual Fine-Tuning (de + fr + it + en)
+
+| 평가 언어 → | 독일어 (de) | 프랑스어 (fr) | 이탈리아어 (it) | 영어 (en) |
+|-------------|-----------|--------------|---------------|----------|
+| **학습 언어** |            |              |               |          |
+| All Languages | - | - | - | - |
+
+> **참고**: Full multilingual 실험 결과는 노트북 최종 실행에 따라 다를 수 있습니다. 일반적으로 모든 언어에서 균형 잡힌 성능을 보입니다.
+
+### 종합 비교
+
+| 전략 | de | fr | it | en | 평균 | 비용 효율성 |
+|------|----|----|----|----|------|------------|
+| Zero-shot (de만 학습) | 0.875 | 0.704 | ~0.70 | 0.606 | ~0.72 | 매우 높음 |
+| Few-shot (fr 1000개) | - | ~0.72 | - | - | - | 높음 |
+| Multilingual (de+fr) | 0.876 | 0.865 | 0.784 | 0.661 | ~0.80 | 중간 |
+| Full Fine-tuning | - | - | - | - | - | 낮음 |
+
+---
+
+## 결과 분석 및 인사이트
+
+### 1. Zero-Shot 전이의 강점
+
+- **데이터 수집 비용 절감**: 타겟 언어 레이블링이 필요 없음
+- **빠른 배포**: 추가 학습 없이 즉시 적용 가능
+- **언어 간 공통 패턴 활용**: XLM-R의 다국어 사전학습 지식 활용
+
+### 2. Few-Shot 학습의 최적화점
+
+- **750개 샘플**: Zero-shot과 동등한 성능 달성 (비용 효율성 관점에서 임계점)
+- **1,000개 이상**: 점진적 성능 향상이지만 체감 수익 감소
+- **실무 권장**: 레이블링 예산이 제한적이면 zero-shot 우선 고려
+
+### 3. Multilingual 학습의 시너지 효과
+
+- **언어 간 지식 공유**: 한 언어 학습이 다른 언어 성능 향상에 기여
+- **일반화 능력**: 본 적 없는 언어에서도 성능 개선
+- **균형 잡힌 성능**: 모든 언어에서 고르게 좋은 성능
+
+### 4. 성능 차이의 원인
+
+- **언어적 거리**: 게르만어파 vs 로망어군
+- **라벨 분포 차이**: 언어별 PER/ORG/LOC 빈도 및 패턴 차이
+- **토크나이저 단편화**: 언어별 서브워드 분해 패턴 차이
+- **문자 및 형태학적 차이**: 대문자 규칙, 접사, 띄어쓰기 등
+
+### 5. 실무 적용 권장사항
+
+1. **저예산 프로젝트**: Zero-shot 우선 시도
+2. **중간 예산**: Few-shot (750-1000개 샘플)로 성능 개선
+3. **충분한 예산**: Multilingual 학습으로 균형 잡힌 성능 달성
+4. **도메인 특화**: 도메인 전문가가 필요할 경우 Few-shot 전략 고려
+
+---
+
+## 기술 스택
+
+### 핵심 라이브러리
+
+| 라이브러리 | 버전 | 용도 |
+|-----------|------|------|
+| **transformers** | 최신 | 모델 및 토크나이저, Trainer API |
+| **datasets** | 최신 | 데이터셋 로딩 및 전처리 |
+| **torch** | 최신 | 딥러닝 프레임워크 |
+| **seqeval** | 1.2.2+ | NER 평가 지표 (F1-score) |
+| **pandas** | 최신 | 데이터 분석 및 시각화 |
+| **numpy** | 최신 | 수치 연산 |
+
+### 모델 및 데이터셋
+
+- **모델**: `xlm-roberta-base` (Hugging Face Hub)
+- **데이터셋**: `xtreme` (PAN-X 서브셋)
+
+### 실행 환경
+
+- Python 3.8+
+- CUDA 지원 GPU (권장)
+- Google Colab / 로컬 환경 모두 지원
+
+---
+
+## 프로젝트 구조
+
+```
+Exploring Cross-Lingual Transfer with XLM-R/
+│
+├── README.md                                    # 프로젝트 문서
+├── Multilingual_NER_with_the_WikiANN_(PAN_X)_Dataset .ipynb  # 메인 실험 노트북
+└── multilingual_ner_with_the_wikiann_(pan_x)_dataset .py     # 변환된 Python 스크립트
+```
+
+### 노트북 주요 섹션
+
+1. **데이터 로딩 및 전처리**: PAN-X 데이터셋 불균형 생성
+2. **모델 정의**: XLMRobertaForTokenClassification 커스텀 클래스
+3. **토큰-레이블 정렬**: 서브워드 토큰화 대응
+4. **Zero-shot 실험**: 독일어 모델의 다국어 전이 성능
+5. **Few-shot 실험**: 프랑스어 샘플 수에 따른 성능 변화
+6. **Multilingual 실험**: 다국어 동시 학습
+7. **오류 분석**: 토큰 레벨 손실 분석
+
+---
+
+## 시작하기
+
+### 설치
+
+```bash
+pip install transformers datasets torch seqeval pandas numpy
+```
+
+### 실행
+
+Jupyter Notebook 또는 Google Colab에서 노트북 파일을 열고 순차적으로 실행:
+
+1. 데이터셋 로딩
+2. 데이터 전처리
+3. 모델 학습
+4. 평가 및 분석
+
+### Hugging Face Hub 업로드 (선택사항)
+
+학습된 모델을 Hub에 업로드하려면:
+
+```python
+from huggingface_hub import notebook_login
+notebook_login()
+```
+
+---
+
+## 향후 개선 방향
+
+- [ ] 더 많은 언어 추가 (스페인어, 포르투갈어 등)
+- [ ] 엔티티 타입별 세부 성능 분석
+- [ ] 하이퍼파라미터 최적화 (learning rate, batch size 등)
+- [ ] 도메인 적응 실험 (뉴스 → 의료 문서 등)
+- [ ] 앙상블 기법 적용
+
+---
+
+## 참고 자료
+
+- **XLM-RoBERTa Paper**: [Unsupervised Cross-lingual Representation Learning at Scale](https://arxiv.org/abs/1911.02116)
+- **PAN-X Dataset**: [XTREME Benchmark](https://github.com/google-research/xtreme)
+- **Hugging Face Transformers**: [Documentation](https://huggingface.co/docs/transformers)
+- **seqeval**: [NER Evaluation Library](https://github.com/chakki-works/seqeval)
+
+---
+
+## 라이선스
+
+이 프로젝트는 연구 및 교육 목적으로 작성되었습니다.
+
+---
+
+## 저자
+
+이 프로젝트는 XLM-RoBERTa를 활용한 교차 언어 전이학습 실험 연구입니다.
+
+---
+
+**Keywords**: `Cross-Lingual Transfer Learning`, `XLM-RoBERTa`, `Named Entity Recognition`, `Zero-Shot Learning`, `Few-Shot Learning`, `Multilingual NLP`, `Natural Language Processing`
 
